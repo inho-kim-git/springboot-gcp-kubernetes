@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @Description 쿠버네티스 인그레스 상태 체크 확인 Rest
  *
  * @Date 2022/03/21
- * @Author inho.kim (inho.kim@softwareinlife.com)
+ * @Author inho.kim
  */
 @RestController
 @Slf4j
