@@ -1,0 +1,51 @@
+# 
+# Test 용 서버를 위한 cloudbuild 설정
+# https://cloud.google.com/cloud-build/docs/build-config
+#
+# Git 브랜치에 Push 하면 자동으로 빌드 되도록 설정되어 있다.
+# 이때 cloudbuild.yaml 파일에 따라 빌드 된다.
+# 
+steps:
+
+  # Step 1 ################################################################
+  # Gradle 빌드
+  - name: gradle:7.4.1-jdk11-alpine
+    id: Gradle Build
+    entrypoint: 'gradle'
+    args: ['clean', 'build', '--exclude-task', 'test']
+
+  # Step 2 ################################################################
+  # 컨테이너 이미지 빌드
+  # 개발용 Dockerfile 를 통하여 빌드된다.
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Docker Build
+    args: ['build', 
+    '-t', 'gcr.io/$PROJECT_ID/api-server:test-$SHORT_SHA',
+    '-f', 'Dockerfile',
+     '.']
+
+  # Step 3 ################################################################
+  # GCP 컨테이너 레지스트리(Container Registry) 상에 빌드 이미지 등록
+  # PROJECT_ID와 SHORT_SHA 변수는 Cloud Build에 의해 자동으로 대체된다.
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Docker Push
+    args: ['push', 
+    'gcr.io/$PROJECT_ID/api-server:test-$SHORT_SHA']
+
+  # Step 4 ################################################################
+  # 쿠버네티스 배포
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [ 'container', 'clusters', 'get-credentials',
+                'api-server-cluster', '--zone=asia-northeast3-a' ]
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: Kubernates Deployment
+    args: [
+    'set', 'image', 'deployment/api-server-workload',
+    'api-server-container=gcr.io/$PROJECT_ID/api-server:test-$SHORT_SHA'
+    ]
+    env: [
+      "CLOUDSDK_COMPUTE_ZONE=asia-northeast3-a",
+      "CLOUDSDK_CONTAINER_CLUSTER=api-server-cluster"]
+
+images: ['gcr.io/$PROJECT_ID/api-server:test-$SHORT_SHA']
+timeout: 1200s
